@@ -95,11 +95,14 @@ workflows:
         - content: |
             #!/usr/bin/env bash
             set -ex
-            echo "📱 Adding iOS platform..."
-            npx cap add ios || echo "iOS platform exists, syncing..."
+            echo "📱 Removing existing iOS platform (if any)..."
+            rm -rf ios
+            echo "📱 Adding fresh iOS platform..."
+            npx cap add ios
             echo "🔄 Syncing Capacitor with iOS..."
             npx cap sync ios
             echo "✅ iOS platform ready"
+            ls -la ios/App/
     - cocoapods-install@2:
         inputs:
         - source_root_path: ios/App
