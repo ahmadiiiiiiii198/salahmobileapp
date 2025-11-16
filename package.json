@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "build:admin": "tsc && vite build && npm run cap:copy",
     "type-check": "tsc --noEmit",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=1000",
     "preview": "vite preview --host 0.0.0.0 --port $PORT",
     "start": "vite preview --host 0.0.0.0 --port $PORT",
     "test": "node console-test-script.js",
