@@ -120,7 +120,7 @@ workflows:
               -scheme App \
               -configuration Debug \
               -sdk iphonesimulator \
-              -destination 'platform=iOS Simulator,name=Bitrise iOS default' \
+              -destination 'platform=iOS Simulator,name=Any iOS Simulator Device' \
               -derivedDataPath build \
               build
             echo "✅ Simulator build complete!"
