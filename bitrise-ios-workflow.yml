@@ -1,0 +1,173 @@
+# Bitrise iOS Build Workflow Configuration
+# This is the complete workflow for building your iOS app
+# You can import this into Bitrise or use it as reference
+
+format_version: '13'
+default_step_lib_source: https://github.com/bitrise-io/bitrise-steplib.git
+
+app:
+  envs:
+  - BITRISE_PROJECT_PATH: ios/App/App.xcworkspace
+  - BITRISE_SCHEME: App
+  - BITRISE_EXPORT_METHOD: development
+  - BUNDLE_ID: com.efeskebap.admin
+
+workflows:
+  ios_build:
+    description: Complete iOS build workflow for Capacitor app
+    steps:
+    
+    # Step 1: Clone Repository
+    - git-clone@8.4.0: {}
+    
+    # Step 2: Install Node.js
+    - nvm@1.2.1:
+        inputs:
+        - node_version: '20'
+    
+    # Step 3: Restore NPM Cache
+    - restore-npm-cache@2.3.2: {}
+    
+    # Step 4: Install Dependencies
+    - npm@1.1.6:
+        inputs:
+        - command: install
+    
+    # Step 5: Lint Code
+    - npm@1.1.6:
+        inputs:
+        - command: run lint
+    
+    # Step 6: Run Tests
+    - npm@1.1.6:
+        inputs:
+        - command: run test
+    
+    # Step 7: Save NPM Cache
+    - save-npm-cache@1.2.0: {}
+    
+    # Step 8: Add iOS Platform
+    - script@1.2.3:
+        title: Add iOS Platform
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -ex
+            
+            echo "📱 Adding iOS platform to Capacitor project..."
+            npx cap add ios || echo "iOS platform already exists"
+            echo "✅ iOS platform ready"
+    
+    # Step 9: Use iOS Configuration
+    - script@1.2.3:
+        title: Use iOS Configuration
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -ex
+            
+            echo "⚙️  Switching to iOS Capacitor configuration..."
+            if [ -f "capacitor.config.ios.ts" ]; then
+              cp capacitor.config.ios.ts capacitor.config.ts
+              echo "✅ iOS config activated"
+              cat capacitor.config.ts
+            else
+              echo "⚠️  capacitor.config.ios.ts not found"
+              exit 1
+            fi
+    
+    # Step 10: Build Web Assets
+    - script@1.2.3:
+        title: Build Web Assets
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -ex
+            
+            echo "🏗️  Building web assets for production..."
+            npm run build
+            echo "✅ Web assets built successfully"
+            ls -la dist/
+    
+    # Step 11: Sync Capacitor with iOS
+    - script@1.2.3:
+        title: Sync Capacitor iOS
+        inputs:
+        - content: |-
+            #!/usr/bin/env bash
+            set -ex
+            
+            echo "🔄 Syncing Capacitor with iOS project..."
+            npx cap sync ios
+            echo "✅ Capacitor sync complete"
+            
+            # Verify iOS project structure
+            echo "📂 iOS project structure:"
+            ls -la ios/App/
+    
+    # Step 12: Install CocoaPods Dependencies
+    - cocoapods-install@2.3.3:
+        inputs:
+        - source_root_path: ios/App
+        - podfile_path: ios/App/Podfile
+    
+    # Step 13: iOS Auto Provision with Apple ID
+    - ios-auto-provision-appstoreconnect@2.1.3:
+        inputs:
+        - distribution_type: development
+        - bundle_identifier: $BUNDLE_ID
+        - configuration: Debug
+        - min_profile_days_valid: 0
+    
+    # Step 14: Xcode Archive & Export for iOS
+    - xcode-archive@5.1.4:
+        inputs:
+        - project_path: $BITRISE_PROJECT_PATH
+        - scheme: $BITRISE_SCHEME
+        - distribution_method: $BITRISE_EXPORT_METHOD
+        - automatic_code_signing: api-key
+        - configuration: Release
+        - export_options_plist_content: |-
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+                <key>method</key>
+                <string>$BITRISE_EXPORT_METHOD</string>
+                <key>teamID</key>
+                <string>$APPLE_TEAM_ID</string>
+                <key>uploadBitcode</key>
+                <false/>
+                <key>compileBitcode</key>
+                <false/>
+                <key>uploadSymbols</key>
+                <true/>
+                <key>signingStyle</key>
+                <string>automatic</string>
+            </dict>
+            </plist>
+    
+    # Step 15: Deploy to iTunes Connect (Optional - uncomment to use)
+    # - deploy-to-itunesconnect-application-loader@1.1.2:
+    #     inputs:
+    #     - connection: api_key
+    #     - api_key_path: $BITRISE_API_KEY_PATH
+    #     - api_issuer: $APPLE_API_ISSUER_ID
+    
+    # Step 16: Deploy to Bitrise.io (for artifact storage)
+    - deploy-to-bitrise-io@2.5.1:
+        inputs:
+        - notify_user_groups: none
+
+meta:
+  bitrise.io:
+    stack: osx-xcode-16.1.x
+    machine_type_id: g2-m1-max.5core
+
+trigger_map:
+- push_branch: master
+  workflow: ios_build
+- push_branch: main
+  workflow: ios_build
+- tag: v*-ios
+  workflow: ios_build
